@@ -159,7 +159,7 @@ function Dashboard() {
           )}
           {m.weekDishes.length > 1 && (
             <p className="mt-2 text-xs text-muted-foreground">
-              Least popular: <span className="font-medium text-foreground">{m.weekDishes[m.weekDishes.length - 1].name}</span>
+              Least popular: <span className="font-medium text-foreground">{m.weekDishes.at(-1)?.name}</span>
             </p>
           )}
         </Panel>

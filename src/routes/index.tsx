@@ -103,7 +103,7 @@ function IdentityForm({
 }: {
   initial: Identity | null;
   onSave: (i: Identity) => void;
-  onCancel?: () => void;
+  onCancel?: (() => void) | undefined;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [department, setDepartment] = useState(initial?.department ?? "");
@@ -112,7 +112,10 @@ function IdentityForm({
       className="mx-auto max-w-lg rounded-2xl bg-card p-8 shadow-card"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!name.trim() || !department) return toast.error("Please enter your name and department");
+        if (!name.trim() || !department) {
+          toast.error("Please enter your name and department");
+          return;
+        }
         onSave({ name: name.trim(), department });
       }}
     >
@@ -178,11 +181,14 @@ function WeekOrder({ identity }: { identity: Identity }) {
       department: identity.department,
       order_date: d,
       skipped: picks[d] === SKIP,
-      menu_item_id: picks[d] === SKIP ? null : picks[d],
+      menu_item_id: picks[d] === SKIP ? null : (picks[d] ?? null),
     }));
     const { error } = await supabase.from("orders").upsert(rows, { onConflict: "staff_key,order_date" });
     setSaving(false);
-    if (error) return toast.error(error.message.includes("closed") ? "One of those days has closed for orders." : "Couldn't save your order. Please try again.");
+    if (error) {
+      toast.error(error.message.includes("closed") ? "One of those days has closed for orders." : "Couldn't save your order. Please try again.");
+      return;
+    }
     toast.success(`Saved ${rows.length} day${rows.length > 1 ? "s" : ""}. Enjoy your meal!`);
     qc.invalidateQueries({ queryKey: ["my-orders"] });
   };
