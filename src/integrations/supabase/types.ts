@@ -14,7 +14,92 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      menu_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          menu_date: string
+          name: string
+          tags: string[]
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          menu_date: string
+          name: string
+          tags?: string[]
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          menu_date?: string
+          name?: string
+          tags?: string[]
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          created_at: string
+          department: string
+          id: string
+          menu_item_id: string | null
+          order_date: string
+          skipped: boolean
+          staff_key: string | null
+          staff_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department: string
+          id?: string
+          menu_item_id?: string | null
+          order_date: string
+          skipped?: boolean
+          staff_key?: string | null
+          staff_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department?: string
+          id?: string
+          menu_item_id?: string | null
+          order_date?: string
+          skipped?: boolean
+          staff_key?: string | null
+          staff_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settings: {
+        Row: {
+          cutoff_hour: number
+          id: number
+        }
+        Insert: {
+          cutoff_hour?: number
+          id?: number
+        }
+        Update: {
+          cutoff_hour?: number
+          id?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
