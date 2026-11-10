@@ -36,8 +36,9 @@ export type Order = {
 export const toISO = (d: Date) => format(d, "yyyy-MM-dd");
 
 /** Monday-to-Friday ISO dates for the week starting on `monday`. */
-export function weekDays(monday: Date): string[] {
-  return [0, 1, 2, 3, 4].map((i) => toISO(addDays(monday, i)));
+export function weekDays(monday: Date): [string, string, string, string, string] {
+  const d = (i: number) => toISO(addDays(monday, i));
+  return [d(0), d(1), d(2), d(3), d(4)];
 }
 
 export function mondayOf(d: Date): Date {
