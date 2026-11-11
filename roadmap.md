@@ -1,5 +1,5 @@
 # Lunch ordering completion
-- [ ] Complete weekly menu and cutoff administration.
-- [ ] Complete searchable orders and exports.
-- [ ] Complete staff order review and validated saving.
-- [ ] Verify rules and staff/admin flows on desktop and mobile.
+- [x] Complete weekly menu and cutoff administration.
+- [x] Complete searchable orders and exports.
+- [x] Complete staff order review and validated saving.
+- [x] Verify rules and staff/admin flows on desktop and mobile.
