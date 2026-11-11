@@ -31,7 +31,9 @@ export const saveOrders = createServerFn({ method: "POST" }).inputValidator((inp
   return { ok: true, message: "Choices saved" };
 });
 export const saveDish = createServerFn({ method: "POST" }).inputValidator((input) => dishSchema.parse(input)).handler(async ({ data }) => {
-  const { error } = await lunchClient().from("menu_items").upsert(data);
+  const { id, ...fields } = data;
+  const row = id ? { ...fields, id } : fields;
+  const { error } = await lunchClient().from("menu_items").upsert(row);
   if (error) throw new Error("Couldn't save this dish");
   return { ok: true };
 });
