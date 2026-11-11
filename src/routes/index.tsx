@@ -81,7 +81,7 @@ function OrderPage() {
         </div>
       </section>
 
-      <main className="mx-auto -mt-8 max-w-6xl px-6 pb-20">
+      <main className="relative mx-auto -mt-8 max-w-6xl px-6 pb-20">
         {!ready ? null : !identity || editing ? (
           <IdentityForm initial={identity} onSave={save} onCancel={identity ? () => setEditing(false) : undefined} />
         ) : (
