@@ -28,3 +28,7 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+- Keep lunch RPCs in `src/lib/lunch.functions.ts`, validation in a client-safe module, and request-scoped public clients in `lunch.server.ts`; the approved public-access model must never rely on privileged credentials.
+- Enforce ordering deadlines and day/dish consistency in database triggers so direct Data API writes cannot bypass the rules.
+- Keep admin content as separate children of the `/admin` layout and use shared design-system controls for forms.

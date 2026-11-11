@@ -1,5 +1,5 @@
 import { addDays, format, parseISO, startOfWeek } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
+import { getMenu, getOrders, getSettings } from "./lunch.functions";
 
 export const DEPARTMENTS = [
   "Claims",
@@ -28,7 +28,7 @@ export type Order = {
   order_date: string;
   menu_item_id: string | null;
   skipped: boolean;
-  staff_key: string;
+  staff_key: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -66,33 +66,15 @@ export const staffKey = (name: string, dept: string) =>
   `${name.trim().toLowerCase()}|${dept.toLowerCase()}`;
 
 export async function fetchSettings() {
-  const { data, error } = await supabase.from("settings").select("*").eq("id", 1).single();
-  if (error) throw error;
-  return data;
+  return getSettings();
 }
 
 export async function fetchMenu(from: string, to: string): Promise<MenuItem[]> {
-  const { data, error } = await supabase
-    .from("menu_items")
-    .select("*")
-    .gte("menu_date", from)
-    .lte("menu_date", to)
-    .order("menu_date")
-    .order("name");
-  if (error) throw error;
-  return data as MenuItem[];
+  return getMenu({ data: { from, to } });
 }
 
-export async function fetchOrders(from: string, to: string): Promise<Order[]> {
-  const { data, error } = await supabase
-    .from("orders")
-    .select("*")
-    .gte("order_date", from)
-    .lte("order_date", to)
-    .order("order_date")
-    .limit(5000);
-  if (error) throw error;
-  return data as Order[];
+export async function fetchOrders(from: string, to: string, key?: string): Promise<Order[]> {
+  return getOrders({ data: { from, to, staff_key: key } });
 }
 
 export const dayLabel = (iso: string) => format(parseISO(iso), "EEEE");

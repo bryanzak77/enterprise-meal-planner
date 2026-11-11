@@ -16,6 +16,8 @@ function AdminLayout() {
           <h1 className="text-2xl font-semibold">Administration</h1>
           <nav className="mt-4 flex gap-6">
             <Link to="/admin" className={tab} activeProps={active} activeOptions={{ exact: true }}>Dashboard</Link>
+            <Link to="/admin/orders" className={tab} activeProps={active}>Orders</Link>
+            <Link to="/admin/menu" className={tab} activeProps={active}>Menu & settings</Link>
           </nav>
         </div>
       </div>

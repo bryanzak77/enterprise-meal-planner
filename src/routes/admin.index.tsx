@@ -5,6 +5,7 @@ import { addDays } from "date-fns";
 import { Download, Printer } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
+import { downloadCsv } from "@/lib/export";
 import { dayLabel, fetchMenu, fetchOrders, mondayOf, shortDate, toISO, weekDays } from "@/lib/lunch";
 
 export const Route = createFileRoute("/admin/")({
@@ -14,6 +15,8 @@ export const Route = createFileRoute("/admin/")({
       { name: "description", content: "Lunch order metrics for Enterprise Insurance administrators." },
       { property: "og:title", content: "Lunch Dashboard — Enterprise Insurance" },
       { property: "og:description", content: "Lunch order metrics for administrators." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Dashboard,
@@ -47,7 +50,7 @@ function Dashboard() {
     const dishCount = (list: typeof all) => {
       const c = new Map<string, number>();
       meals(list).forEach((o) => {
-        const n = items.get(o.menu_item_id!)?.name ?? "Removed dish";
+        const n = items.get(o.menu_item_id ?? "")?.name ?? "Removed dish";
         c.set(n, (c.get(n) ?? 0) + 1);
       });
       return [...c.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
@@ -70,7 +73,7 @@ function Dashboard() {
 
     const weekDishes = dishCount(week);
     const tomRows = tomMeals
-      .map((o) => ({ name: o.staff_name, dept: o.department, dish: items.get(o.menu_item_id!)?.name ?? "" }))
+      .map((o) => ({ name: o.staff_name, dept: o.department, dish: items.get(o.menu_item_id ?? "")?.name ?? "" }))
       .sort((a, b) => a.dish.localeCompare(b.dish) || a.name.localeCompare(b.name));
 
     return {
@@ -90,17 +93,14 @@ function Dashboard() {
 
   const exportCsv = () => {
     const lines = [["Name", "Department", "Dish"], ...m.tomRows.map((r) => [r.name, r.dept, r.dish])];
-    const csv = lines.map((l) => l.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `lunch-orders-${tomorrow}.csv`;
-    a.click();
+    downloadCsv(`lunch-orders-${tomorrow}.csv`, lines);
   };
 
   const loading = orders.isLoading || menu.isLoading;
 
   return (
     <div className="space-y-6">
+      {(orders.isError || menu.isError) && <p role="alert" className="text-destructive">Couldn't load dashboard figures. <Button variant="ghost" onClick={() => { orders.refetch(); menu.refetch(); }}>Try again</Button></p>}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">Next service day</p>
