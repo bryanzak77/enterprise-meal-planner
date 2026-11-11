@@ -4,7 +4,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays } from "date-fns";
 import { Check, ChevronLeft, ChevronRight, Lock, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { saveOrders } from "@/lib/lunch.functions";
+import { orderBatchSchema } from "@/lib/lunch.validation";
+import lunchPhoto from "@/assets/staff-lunch.jpg";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +36,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Pick your lunch for each day of the week at Enterprise Insurance." },
       { property: "og:title", content: "Order Lunch — Enterprise Insurance" },
       { property: "og:description", content: "Pick your lunch for each day of the week." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: OrderPage,
@@ -48,8 +53,13 @@ function OrderPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const raw = localStorage.getItem(ID_KEY);
-    if (raw) setIdentity(JSON.parse(raw));
+    try {
+      const raw = localStorage.getItem(ID_KEY);
+      if (raw) {
+        const stored = JSON.parse(raw);
+        if (typeof stored.name === "string" && DEPARTMENTS.includes(stored.department)) setIdentity(stored);
+      }
+    } catch { localStorage.removeItem(ID_KEY); }
     setReady(true);
   }, []);
 
@@ -62,15 +72,12 @@ function OrderPage() {
   return (
     <div className="min-h-screen">
       <SiteHeader />
-      <section className="bg-hero text-primary-foreground">
-        <div className="mx-auto max-w-6xl px-6 pb-16 pt-10">
+      <section className="relative overflow-hidden bg-primary text-primary-foreground">
+        <img src={lunchPhoto} alt="Jollof rice, grilled chicken and fresh vegetables" width={1536} height={768} className="absolute inset-0 h-full w-full object-cover object-right" />
+        <div className="relative mx-auto max-w-6xl px-6 pb-16 pt-10">
           <p className="text-sm font-medium uppercase tracking-widest text-highlight">Lunch ordering</p>
-          <h1 className="mt-2 max-w-2xl text-4xl font-semibold md:text-5xl">
-            {identity ? `Hi ${identity.name.split(" ")[0]}, what's for lunch?` : "What would you like for lunch?"}
-          </h1>
-          <p className="mt-3 max-w-xl text-primary-foreground/70">
-            Choose a meal for any day from Monday to Friday. You can change your choice until the cutoff the day before.
-          </p>
+          <h1 className="mt-2 max-w-md text-3xl font-semibold md:text-4xl">Enterprise Insurance<br />Staff Lunch</h1>
+          <p className="mt-3 max-w-sm text-primary-foreground">{identity ? `Hi ${identity.name.split(" ")[0]}, what's for lunch?` : "Your next lunch, sorted."}</p>
         </div>
       </section>
 
@@ -146,6 +153,9 @@ function IdentityForm({
 
 function WeekOrder({ identity }: { identity: Identity }) {
   const qc = useQueryClient();
+  const saveChoices = useServerFn(saveOrders);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const timer = setInterval(() => setNow(new Date()), 15000); return () => clearInterval(timer); }, []);
   const [monday, setMonday] = useState(() => defaultOrderingMonday());
   const days = weekDays(monday);
   const from = days[0], to = days[4];
@@ -155,7 +165,7 @@ function WeekOrder({ identity }: { identity: Identity }) {
   const menu = useQuery({ queryKey: ["menu", from, to], queryFn: () => fetchMenu(from, to) });
   const mine = useQuery({
     queryKey: ["my-orders", key, from],
-    queryFn: async () => (await fetchOrders(from, to)).filter((o) => o.staff_key === key),
+    queryFn: () => fetchOrders(from, to, key),
   });
 
   const [picks, setPicks] = useState<Record<string, string>>({});
@@ -171,10 +181,11 @@ function WeekOrder({ identity }: { identity: Identity }) {
     mine.data?.forEach((o) => (p[o.order_date] = o.skipped ? SKIP : o.menu_item_id ?? SKIP));
     return p;
   }, [mine.data]);
-  const changed = days.filter((d) => !isLocked(d, cutoff) && picks[d] && picks[d] !== saved[d]);
+  const changed = days.filter((d) => !isLocked(d, cutoff, now) && picks[d] && picks[d] !== saved[d]);
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
+    if (!changed.length) return;
     setSaving(true);
     const rows = changed.map((d) => ({
       staff_name: identity.name,
@@ -183,17 +194,16 @@ function WeekOrder({ identity }: { identity: Identity }) {
       skipped: picks[d] === SKIP,
       menu_item_id: picks[d] === SKIP ? null : (picks[d] ?? null),
     }));
-    const { error } = await supabase.from("orders").upsert(rows, { onConflict: "staff_key,order_date" });
-    setSaving(false);
-    if (error) {
-      toast.error(error.message.includes("closed") ? "One of those days has closed for orders." : "Couldn't save your order. Please try again.");
-      return;
-    }
-    toast.success(`Saved ${rows.length} day${rows.length > 1 ? "s" : ""}. Enjoy your meal!`);
-    qc.invalidateQueries({ queryKey: ["my-orders"] });
+    try {
+      const result = await saveChoices({ data: orderBatchSchema.parse(rows) });
+      if (!result.ok) { toast.error(result.message); return; }
+      toast.success(`Saved ${rows.length} day${rows.length > 1 ? "s" : ""}. Enjoy your meal!`);
+      await qc.invalidateQueries({ queryKey: ["my-orders"] });
+    } catch { toast.error("Couldn't save your order. Please try again."); }
+    finally { setSaving(false); }
   };
 
-  const openDays = days.filter((d) => !isLocked(d, cutoff));
+  const openDays = days.filter((d) => !isLocked(d, cutoff, now));
   const fillAll = (idx: number) => {
     const p = { ...picks };
     openDays.forEach((d) => {
@@ -216,9 +226,10 @@ function WeekOrder({ identity }: { identity: Identity }) {
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-5">
+      {(menu.isError || mine.isError || settings.isError) && <p role="alert" className="mb-4 text-destructive">Couldn't load your lunch choices. <Button variant="ghost" onClick={() => { menu.refetch(); mine.refetch(); settings.refetch(); }}>Try again</Button></p>}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {days.map((d) => {
-          const locked = isLocked(d, cutoff);
+          const locked = isLocked(d, cutoff, now) || !settings.data || mine.isLoading;
           const items = menu.data?.filter((m) => m.menu_date === d) ?? [];
           const tomorrow = d === toISO(addDays(new Date(), 1));
           return (
@@ -238,12 +249,12 @@ function WeekOrder({ identity }: { identity: Identity }) {
                 {menu.isLoading && <div className="h-24 animate-pulse rounded-lg bg-muted" />}
                 {!menu.isLoading && items.length === 0 && <p className="text-sm text-muted-foreground">No menu yet.</p>}
                 {items.map((m) => (
-                  <button
+                  <Button variant="outline"
                     key={m.id}
                     disabled={locked}
                     onClick={() => setPicks({ ...picks, [d]: m.id })}
                     className={cn(
-                      "rounded-lg border p-3 text-left transition-all enabled:hover:border-accent disabled:cursor-not-allowed",
+                      "h-auto w-full flex-col items-start whitespace-normal rounded-lg border p-3 text-left transition-all enabled:hover:border-accent disabled:cursor-not-allowed",
                       picks[d] === m.id ? "border-accent bg-accent/10 ring-1 ring-accent" : "border-border",
                     )}
                   >
@@ -254,19 +265,19 @@ function WeekOrder({ identity }: { identity: Identity }) {
                         {m.tags.map((t) => <span key={t} className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{t}</span>)}
                       </div>
                     )}
-                  </button>
+                  </Button>
                 ))}
                 {items.length > 0 && (
-                  <button
+                  <Button variant="outline"
                     disabled={locked}
                     onClick={() => setPicks({ ...picks, [d]: SKIP })}
                     className={cn(
-                      "rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground disabled:cursor-not-allowed",
+                      "h-auto whitespace-normal rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground disabled:cursor-not-allowed",
                       picks[d] === SKIP ? "border-foreground text-foreground" : "border-border",
                     )}
                   >
                     I won't need lunch
-                  </button>
+                  </Button>
                 )}
               </div>
               {!locked && (
@@ -283,10 +294,11 @@ function WeekOrder({ identity }: { identity: Identity }) {
         <p className="text-sm">
           {changed.length ? `${changed.length} day${changed.length > 1 ? "s" : ""} with unsaved changes` : "Your choices are up to date"}
         </p>
-        <Button variant="secondary" className="bg-highlight text-primary hover:bg-highlight/90" disabled={!changed.length || saving} onClick={submit}>
+        <Button variant="secondary" className="shrink-0 bg-highlight text-primary hover:bg-highlight/90" disabled={!changed.length || saving || !settings.data || mine.isLoading || menu.isError || mine.isError} onClick={submit}>
           {saving ? "Saving…" : "Submit order"}
         </Button>
       </div>
+      {mine.data && mine.data.length > 0 && <section className="mt-8 border-t border-border pt-6"><h2 className="text-lg font-semibold">My orders</h2><ul className="mt-3 divide-y divide-border">{mine.data.map((order) => <li key={order.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span className="font-medium">{dayLabel(order.order_date)} · {shortDate(order.order_date)}</span><span>{order.skipped ? "No lunch" : menu.data?.find((item) => item.id === order.menu_item_id)?.name ?? "Meal no longer available"}</span></li>)}</ul></section>}
     </div>
   );
 }

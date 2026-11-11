@@ -82,7 +82,7 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   /* Navy Trust: #0f1b3d, #1e3a5f, #3b6fa0, #e8edf3 */
   --background: oklch(0.945 0.01 255);
   --foreground: oklch(0.22 0.06 265);
@@ -169,6 +169,17 @@
   }
   h1, h2, h3 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
   }
+}
+
+@media (max-width: 640px) {
+  section > img { opacity: 0.3; }
+}
+
+@media print {
+  header, nav { display: none; }
+  main { max-width: none; }
+  body { background: var(--card); }
+  section { break-inside: avoid; }
 }
